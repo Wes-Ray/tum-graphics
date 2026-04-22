@@ -3,7 +3,7 @@ package main
 import rl "vendor:raylib"
 import "core:fmt"
 import "core:os"
-
+// test
 main :: proc() {
     target_obj :cstring
     if len(os.args) < 2 {
