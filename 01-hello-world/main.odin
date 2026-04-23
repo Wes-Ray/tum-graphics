@@ -33,7 +33,6 @@ main :: proc() {
 
 	time_loc := rl.GetShaderLocation(shader, "time")
 
-	rl.DisableCursor()
 	rl.SetTargetFPS(120)
 
 	for !rl.WindowShouldClose() {
@@ -43,14 +42,17 @@ main :: proc() {
 			break
 		}
 
-		// Shader uniform updates
-		current_time := cast(f32)rl.GetTime()
-		rl.SetShaderValue(shader, time_loc, &current_time, .FLOAT)
-
 		mouse1_down := rl.IsMouseButtonDown(.LEFT)
 		if mouse1_down {
 			rl.UpdateCamera(&camera, .THIRD_PERSON)
+			// rl.DisableCursor()
+		} else {
+			// rl.EnableCursor()
 		}
+
+		// Shader uniform updates
+		current_time := cast(f32)rl.GetTime()
+		rl.SetShaderValue(shader, time_loc, &current_time, .FLOAT)
 
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.GRAY)
@@ -61,8 +63,9 @@ main :: proc() {
 
 		rl.BeginMode3D(camera)
 
-		rl.DrawModel(model, {0., 0., 0.}, 1., rl.WHITE)
-		rl.DrawGrid(10, 1.)
+		// rl.DrawModel(model, {0., 0., 0.}, 1., rl.WHITE)
+		rl.DrawModelWires(model, {0., 0., 0.}, 1., rl.DARKGRAY)
+		// rl.DrawGrid(10, 1.)
 
 		rl.EndMode3D()
 
