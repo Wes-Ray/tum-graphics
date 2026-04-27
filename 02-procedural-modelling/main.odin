@@ -2,11 +2,12 @@
 package main
 
 import "core:fmt"
+import "core:math"
 import "core:os"
 import rl "vendor:raylib"
 
 GEN_TARGET :: "gen.obj"
-// should be an odd number to have a defined center
+// width must be 2^n + 1
 WIDTH :: 5
 
 print_grid :: proc(grid: [WIDTH][WIDTH]f64) {
@@ -18,7 +19,7 @@ print_grid :: proc(grid: [WIDTH][WIDTH]f64) {
 	}
 }
 
-get_grid_value :: proc(tx: int, ty: int, grid: [WIDTH][WIDTH]f64) -> (bool, f64) {
+get_grid_value :: proc(tx: int, ty: int, grid: ^[WIDTH][WIDTH]f64) -> (bool, f64) {
 	if tx >= WIDTH || ty >= WIDTH || tx < 0 || ty < 0 {
 		return false, -1
 	}
@@ -32,11 +33,11 @@ square_step :: proc(tx: int, ty: int, dist: int, grid: ^[WIDTH][WIDTH]f64) {
 	// [y, x]
 	dirs := [][]int{{-1, -1}, {1, -1}, {-1, 1}, {1, 1}}
 	for dir in dirs {
-		targx := dir[1] + tx
-		targy := dir[0] + ty
+		targx := (dir[1] * dist) + tx
+		targy := (dir[0] * dist) + ty
 		// fmt.println("dir: ", dir)
 		// fmt.println("getting: ", targx, targy)
-		ok, out := get_grid_value(targx, targy, grid^)
+		ok, out := get_grid_value(targx, targy, grid)
 		if ok {
 			sum += out
 			count += 1
@@ -54,10 +55,10 @@ diamond_step :: proc(tx: int, ty: int, dist: int, grid: ^[WIDTH][WIDTH]f64) {
 	count := 0.
 	dirs := [][]int{{-1, 0}, {1, 0}, {0, 1}, {0, -1}}
 	for dir in dirs {
-		targx := dir[1] + tx
-		targy := dir[0] + ty
+		targx := (dir[1] * dist) + tx
+		targy := (dir[0] * dist) + ty
 
-		ok, out := get_grid_value(targx, targy, grid^)
+		ok, out := get_grid_value(targx, targy, grid)
 		if ok {
 			sum += out
 			count += 1
@@ -81,7 +82,6 @@ main :: proc() {
 
 	grid: [WIDTH][WIDTH]f64
 
-	step := WIDTH - 1
 	high := WIDTH - 1
 	low := 0
 
@@ -90,15 +90,31 @@ main :: proc() {
 	grid[high][low] = .5
 	grid[high][high] = 1
 
-	for i in 0 ..< WIDTH {
-		square_step(1, 1, 1, &grid)
+	current_width := WIDTH
 
-		diamond_step(0, 1, 1, &grid)
-		diamond_step(1, 0, 1, &grid)
-		diamond_step(2, 1, 1, &grid)
-		diamond_step(1, 2, 1, &grid)
+	for current_width >= 3 {
+		fmt.println("current_width: ", current_width)
+
+		stride := current_width - 1
+		half := stride / 2
+
+		for y := half; y < WIDTH; y += stride {
+			for x := half; x < WIDTH; x += stride {
+				square_step(x, y, half, &grid)
+			}
+		}
+
+		for y := 0; y < WIDTH; y += half {
+			start_x := half if (y % stride == 0) else 0
+			for x := start_x; x < WIDTH; x += stride {
+				diamond_step(x, y, half, &grid)
+			}
+		}
+
+		print_grid(grid)
+		current_width = (current_width / 2) + 1
 	}
-	print_grid(grid)
+	// print_grid(grid)
 
 	//
 	// generate obj file
