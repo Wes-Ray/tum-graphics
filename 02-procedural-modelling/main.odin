@@ -8,7 +8,7 @@ import rl "vendor:raylib"
 
 GEN_TARGET :: "gen.obj"
 // width must be 2^n + 1
-WIDTH :: 5
+WIDTH :: 3
 
 print_grid :: proc(grid: [WIDTH][WIDTH]f64) {
 	for y in 0 ..< WIDTH {
@@ -69,12 +69,7 @@ diamond_step :: proc(tx: int, ty: int, dist: int, grid: ^[WIDTH][WIDTH]f64) {
 }
 
 main :: proc() {
-	target_obj: cstring
-	if len(os.args) < 2 {
-		target_obj = GEN_TARGET
-	} else {
-		target_obj = fmt.ctprintf("%s.obj", os.args[1])
-	}
+	target_obj: cstring = GEN_TARGET
 
 	//
 	// gen height map grid
@@ -86,14 +81,14 @@ main :: proc() {
 	low := 0
 
 	grid[low][low] = 0
-	grid[low][high] = .5
-	grid[high][low] = .5
-	grid[high][high] = 1
+	grid[low][high] = 1
+	grid[high][low] = 1.2
+	grid[high][high] = 2
 
 	current_width := WIDTH
 
 	for current_width >= 3 {
-		fmt.println("current_width: ", current_width)
+		// fmt.println("current_width: ", current_width)
 
 		stride := current_width - 1
 		half := stride / 2
@@ -111,108 +106,134 @@ main :: proc() {
 			}
 		}
 
-		print_grid(grid)
+		// print_grid(grid)
 		current_width = (current_width / 2) + 1
 	}
-	// print_grid(grid)
+	fmt.println("[*] Grid input")
+	print_grid(grid)
 
 	//
 	// generate obj file
 	//
 
-	// if target_obj == GEN_TARGET {
-	// 	fmt.println("[*] Generating object...")
-	// 	flags := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
-	// 	file_handle, err := os.open(GEN_TARGET, flags)
-	// 	if err != os.ERROR_NONE {
-	// 		fmt.println("error opening file")
-	// 		return
-	// 	}
-	// 	defer os.close(file_handle)
+	fmt.println("[*] Generating object...")
+	flags := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	file_handle, err := os.open(GEN_TARGET, flags)
+	if err != os.ERROR_NONE {
+		fmt.println("error opening file")
+		return
+	}
+	defer os.close(file_handle)
 
-	// 	grid: [WIDTH][WIDTH]f32
-	// 	fmt.println(grid)
+	fmt.println("[*] building vertices")
 
-	// 	// fill in obj vertex by vertex
-	// 	// x y(height) z
-	// 	y := 0
-	// 	for x in 0 ..< WIDTH {
-	// 		for z in 0 ..< WIDTH {
-	// 			fmt.fprintf(file_handle, "v %d %d %d\n", x, y, z)
-	// 		}
-	// 	}
-	// 	fmt.fprintf(file_handle, "f 1// 2// 3// 4//\n")
-	// 	fmt.fprintf(file_handle, "f 3// 2// 4//\n")
-	// }
+	y: f64 = -1.
+	for x in 0 ..< WIDTH {
+		for z in 0 ..< WIDTH {
+			y = grid[x][z]
+			fmt.printf("v %d %f %d\n", x, y, z)
+			fmt.fprintf(file_handle, "v %d %f %d\n", x, y, z)
+		}
+	}
 
+	// Example square obj
+	//   x y z  (y is up)
+	// v 0 0 0
+	// v 0 0 1
+	// v 1 0 0
+	// v 1 0 1
+	// f 1// 2// 3//
+	// f 2// 4// 3//
+
+	fmt.println("[*] writing edges")
+
+	// Iterate through every vertex except the last row and last column
+	for y in 0 ..< WIDTH - 1 {
+		for x in 0 ..< WIDTH - 1 {
+			// Calculate the 1-based index for the current Top-Left corner
+			// +1 because OBJ indices start at 1
+			tl := (y * WIDTH) + x + 1
+			tr := tl + 1
+			bl := tl + WIDTH
+			br := bl + 1
+
+			// Triangle 1: Top-Left, Top-Right, Bottom-Left
+			fmt.printfln("f %d// %d// %d//", tl, tr, bl)
+			fmt.fprintf(file_handle, "f %d// %d// %d//\n", tl, tr, bl)
+
+			// Triangle 2: Top-Right, Bottom-Right, Bottom-Left
+			fmt.printfln("f %d// %d// %d//", tr, br, bl)
+			fmt.fprintf(file_handle, "f %d// %d// %d//\n", tr, br, bl)
+		}
+	}
 	//
 	// make render target_obj
 	//
 
-	// rl.InitWindow(1920, 1080, "Test")
-	// defer rl.CloseWindow()
+	rl.InitWindow(1920, 1080, "Test")
+	defer rl.CloseWindow()
 
-	// camera := rl.Camera3D {
-	// 	position   = {5.0, 5.0, 5.0}, // Where the camera is
-	// 	target     = {0.0, 0.0, 0.0}, // What the camera is looking at
-	// 	up         = {0.0, 1.0, 0.0}, // Which way is 'up' (usually Y)
-	// 	fovy       = 45.0, // Field of view
-	// 	projection = .PERSPECTIVE, // Standard 3D perspective
-	// }
+	camera := rl.Camera3D {
+		position   = {5.0, 5.0, 5.0}, // Where the camera is
+		target     = {0.0, 0.0, 0.0}, // What the camera is looking at
+		up         = {0.0, 1.0, 0.0}, // Which way is 'up' (usually Y)
+		fovy       = 45.0, // Field of view
+		projection = .PERSPECTIVE, // Standard 3D perspective
+	}
 
-	// model := rl.LoadModel(target_obj)
-	// defer rl.UnloadModel(model)
+	model := rl.LoadModel(target_obj)
+	defer rl.UnloadModel(model)
 
-	// shader := rl.LoadShader(nil, "shader.fs")
-	// defer rl.UnloadShader(shader)
+	shader := rl.LoadShader(nil, "shader.fs")
+	defer rl.UnloadShader(shader)
 
-	// model.materials[0].shader = shader
+	model.materials[0].shader = shader
 
-	// time_loc := rl.GetShaderLocation(shader, "time")
+	time_loc := rl.GetShaderLocation(shader, "time")
 
-	// rl.SetTargetFPS(120)
+	rl.SetTargetFPS(120)
 
-	// for !rl.WindowShouldClose() {
+	for !rl.WindowShouldClose() {
 
-	// 	ctrl_down := rl.IsKeyDown(.LEFT_CONTROL)
-	// 	if ctrl_down && rl.IsKeyPressed(.C) {
-	// 		break
-	// 	}
+		ctrl_down := rl.IsKeyDown(.LEFT_CONTROL)
+		if ctrl_down && rl.IsKeyPressed(.C) {
+			break
+		}
 
-	// 	mouse1_down := rl.IsMouseButtonDown(.LEFT)
-	// 	if mouse1_down {
-	// 		rl.UpdateCamera(&camera, .THIRD_PERSON)
-	// 		// rl.DisableCursor()
-	// 	} else {
-	// 		// rl.EnableCursor()
-	// 	}
+		mouse1_down := rl.IsMouseButtonDown(.LEFT)
+		if mouse1_down {
+			rl.UpdateCamera(&camera, .THIRD_PERSON)
+			// rl.DisableCursor()
+		} else {
+			// rl.EnableCursor()
+		}
 
-	// 	// Shader uniform updates
-	// 	current_time := cast(f32)rl.GetTime()
-	// 	rl.SetShaderValue(shader, time_loc, &current_time, .FLOAT)
+		// Shader uniform updates
+		current_time := cast(f32)rl.GetTime()
+		rl.SetShaderValue(shader, time_loc, &current_time, .FLOAT)
 
-	// 	rl.BeginDrawing()
-	// 	rl.ClearBackground(rl.GRAY)
+		rl.BeginDrawing()
+		rl.ClearBackground(rl.GRAY)
 
-	// 	//
-	// 	// 3D drawing
-	// 	//
+		//
+		// 3D drawing
+		//
 
-	// 	rl.BeginMode3D(camera)
+		rl.BeginMode3D(camera)
 
-	// 	// rl.DrawModel(model, {0., 0., 0.}, 1., rl.WHITE)
-	// 	rl.DrawModelWires(model, {0., 0., 0.}, 1., rl.DARKGRAY)
-	// 	// rl.DrawGrid(10, 1.)
+		// rl.DrawModel(model, {0., 0., 0.}, 1., rl.WHITE)
+		rl.DrawModelWires(model, {0., 0., 0.}, 1., rl.DARKGRAY)
+		// rl.DrawGrid(10, 1.)
 
-	// 	rl.EndMode3D()
+		rl.EndMode3D()
 
-	// 	//
-	// 	// 2D drawing
-	// 	//
+		//
+		// 2D drawing
+		//
 
-	// 	rl.DrawText("ctrl-c to close", 30, 30, 40, rl.DARKGRAY)
-	// 	rl.DrawText("mouse1 for camera", 30, 80, 40, rl.DARKGRAY)
+		rl.DrawText("ctrl-c to close", 30, 30, 40, rl.DARKGRAY)
+		rl.DrawText("mouse1 for camera", 30, 80, 40, rl.DARKGRAY)
 
-	// 	rl.EndDrawing()
-	// }
+		rl.EndDrawing()
+	}
 }
