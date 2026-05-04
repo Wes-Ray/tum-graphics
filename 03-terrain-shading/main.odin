@@ -1,3 +1,4 @@
+
 // Project 2: Procedure Modelling
 package main
 
@@ -11,7 +12,7 @@ import rl "vendor:raylib"
 GEN_TARGET :: "gen.obj"
 // width must be 2^n + 1
 WIDTH :: 129
-ROUGHNESS :: .33
+ROUGHNESS :: .25
 
 print_grid :: proc(grid: [WIDTH][WIDTH]f64) {
 	for y in 0 ..< WIDTH {
@@ -42,8 +43,6 @@ square_step :: proc(tx: int, ty: int, dist: int, grid: ^[WIDTH][WIDTH]f64, weigh
 	for dir in dirs {
 		targx := (dir[1] * dist) + tx
 		targy := (dir[0] * dist) + ty
-		// fmt.println("dir: ", dir)
-		// fmt.println("getting: ", targx, targy)
 		ok, out := get_grid_value(targx, targy, grid)
 		if ok {
 			sum += out
@@ -51,8 +50,6 @@ square_step :: proc(tx: int, ty: int, dist: int, grid: ^[WIDTH][WIDTH]f64, weigh
 		}
 	}
 
-	// fmt.println("sum: %f", sum)
-	// fmt.println("count: %f", count)
 	grid^[ty][tx] = (sum / count) + get_rand(weight)
 }
 
@@ -87,17 +84,15 @@ build_object :: proc() {
 	low := 0
 
 	grid[low][low] = 0
-	grid[low][high] = 0
-	grid[high][low] = 0
-	grid[high][high] = 0
+	grid[low][high] = 2
+	grid[high][low] = 2
+	grid[high][high] = 10
 
 	current_width := WIDTH
-	current_weight := 1.0
+	current_weight := 1.5
 	roughness := ROUGHNESS
 
 	for current_width >= 3 {
-		// fmt.println("current_width: ", current_width)
-
 		stride := current_width - 1
 		half := stride / 2
 
@@ -114,13 +109,10 @@ build_object :: proc() {
 			}
 		}
 
-		// print_grid(grid)
 		current_width = (current_width / 2) + 1
 		current_weight = current_weight / (math.pow(2, roughness))
-
 	}
 	fmt.println("[*] Grid input")
-	// print_grid(grid)
 
 	//
 	// generate obj file
@@ -137,23 +129,16 @@ build_object :: proc() {
 
 	fmt.println("[*] building vertices")
 
+	// Calculate offset to center the mesh at 0,0,0
+	offset := WIDTH / 2
 	y: f64 = -1.
 	for x in 0 ..< WIDTH {
 		for z in 0 ..< WIDTH {
 			y = grid[x][z]
-			// fmt.printf("v %d %f %d\n", x, y, z)
-			fmt.fprintf(file_handle, "v %d %f %d\n", x, y, z)
+			// Subtract the offset from x and z coordinates
+			fmt.fprintf(file_handle, "v %d %f %d\n", x - offset, y, z - offset)
 		}
 	}
-
-	// Example square obj
-	//   x y z  (y is up)
-	// v 0 0 0
-	// v 0 0 1
-	// v 1 0 0
-	// v 1 0 1
-	// f 1// 2// 3//
-	// f 2// 4// 3//
 
 	fmt.println("[*] writing edges")
 
@@ -168,11 +153,9 @@ build_object :: proc() {
 			br := bl + 1
 
 			// Triangle 1: Top-Left, Top-Right, Bottom-Left
-			// fmt.printfln("f %d// %d// %d//", tl, tr, bl)
 			fmt.fprintf(file_handle, "f %d// %d// %d//\n", tl, tr, bl)
 
 			// Triangle 2: Top-Right, Bottom-Right, Bottom-Left
-			// fmt.printfln("f %d// %d// %d//", tr, br, bl)
 			fmt.fprintf(file_handle, "f %d// %d// %d//\n", tr, br, bl)
 		}
 	}
@@ -213,12 +196,11 @@ main :: proc() {
 	defer rl.CloseWindow()
 
 	camera := rl.Camera3D {
-		position   = {5.0, 5.0, 5.0}, // Where the camera is
-		// target     = {0.0, 0.0, 0.0}, // What the camera is looking at
-		target     = {WIDTH / 2, 0.0, WIDTH / 2}, // What the camera is looking at
-		up         = {0.0, 1.0, 0.0}, // Which way is 'up' (usually Y)
-		fovy       = 45.0, // Field of view
-		projection = .PERSPECTIVE, // Standard 3D perspective
+		position   = {64.0, 45.0, 64.0},
+		target     = {0.0, 0.0, 0.0},
+		up         = {0.0, 1.0, 0.0},
+		fovy       = 45.0,
+		projection = .PERSPECTIVE,
 	}
 
 	model := rl.LoadModel(target_obj)
@@ -241,12 +223,9 @@ main :: proc() {
 			break
 		}
 
-		mouse1_down := rl.IsMouseButtonDown(.LEFT)
-		if mouse1_down {
+		camera_button_down := rl.IsKeyDown(.SPACE)
+		if camera_button_down {
 			rl.UpdateCamera(&camera, .THIRD_PERSON)
-			// rl.DisableCursor()
-		} else {
-			// rl.EnableCursor()
 		}
 
 		// Shader uniform updates
@@ -262,9 +241,7 @@ main :: proc() {
 
 		rl.BeginMode3D(camera)
 
-		// rl.DrawModel(model, {0., 0., 0.}, 1., rl.WHITE)
 		rl.DrawModelWires(model, {0., 0., 0.}, 1., rl.DARKGRAY)
-		// rl.DrawGrid(10, 1.)
 
 		rl.EndMode3D()
 
@@ -273,7 +250,7 @@ main :: proc() {
 		//
 
 		rl.DrawText("ctrl-c to close", 30, 30, 40, rl.DARKGRAY)
-		rl.DrawText("mouse1 for camera", 30, 80, 40, rl.DARKGRAY)
+		rl.DrawText("space for camera", 30, 80, 40, rl.DARKGRAY)
 
 		rl.EndDrawing()
 	}
