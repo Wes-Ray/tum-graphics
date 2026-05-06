@@ -11,8 +11,8 @@ import rl "vendor:raylib"
 
 GEN_TARGET :: "gen.obj"
 // width must be 2^n + 1
+// WIDTH :: 5
 WIDTH :: 129
-ROUGHNESS :: .25
 
 print_grid :: proc(grid: [WIDTH][WIDTH]f64) {
 	for y in 0 ..< WIDTH {
@@ -90,7 +90,7 @@ build_object :: proc() {
 
 	current_width := WIDTH
 	current_weight := 1.5
-	roughness := ROUGHNESS
+	roughness := .25
 
 	for current_width >= 3 {
 		stride := current_width - 1
@@ -140,23 +140,49 @@ build_object :: proc() {
 		}
 	}
 
+	fmt.println("[*] generating normals")
+
+	// Iterate through every vertex except the last row and last column
+	for x in 0 ..< WIDTH {
+		for z in 0 ..< WIDTH {
+			// neighbor heights
+			hl := grid[max(0, x - 1)][z]
+			hr := grid[min(WIDTH - 1, x + 1)][z]
+			hu := grid[x][max(0, z - 1)]
+			hd := grid[x][min(WIDTH - 1, z + 1)]
+
+			// difference normal
+			nx := hl - hr
+			ny := 2.0
+			nz := hu - hd
+
+			// normalize vector
+			length := math.sqrt(nx * nx + ny * ny + nz * nz)
+			nx /= length
+			ny /= length
+			nz /= length
+
+			fmt.fprintf(file_handle, "vn %f %f %f\n", nx, ny, nz)
+		}
+	}
+
 	fmt.println("[*] writing edges")
 
 	// Iterate through every vertex except the last row and last column
-	for y in 0 ..< WIDTH - 1 {
-		for x in 0 ..< WIDTH - 1 {
+	for x in 0 ..< WIDTH - 1 {
+		for z in 0 ..< WIDTH - 1 {
 			// Calculate the 1-based index for the current Top-Left corner
 			// +1 because OBJ indices start at 1
-			tl := (y * WIDTH) + x + 1
+			tl := (x * WIDTH) + z + 1
 			tr := tl + 1
 			bl := tl + WIDTH
 			br := bl + 1
 
 			// Triangle 1: Top-Left, Top-Right, Bottom-Left
-			fmt.fprintf(file_handle, "f %d// %d// %d//\n", tl, tr, bl)
+			fmt.fprintf(file_handle, "f %d//%d %d//%d %d//%d\n", tl, tl, tr, tr, bl, bl)
 
 			// Triangle 2: Top-Right, Bottom-Right, Bottom-Left
-			fmt.fprintf(file_handle, "f %d// %d// %d//\n", tr, br, bl)
+			fmt.fprintf(file_handle, "f %d//%d %d//%d %d//%d\n", tr, tr, br, br, bl, bl)
 		}
 	}
 }
